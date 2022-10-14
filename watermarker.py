@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import argparse
-
+import moviepy.editor as mp
 
 def apply_watermark(source_img : np.ndarray, watermark_img : np.ndarray):
     # Calculate aspect ratio of watermark
@@ -19,6 +19,19 @@ def apply_watermark(source_img : np.ndarray, watermark_img : np.ndarray):
     # Apply new calculated values to the result
     result[result.shape[0] - resized_watermark.shape[0]:, result.shape[1] - resized_watermark.shape[1]:,:] = new_slice.astype("uint8")
     return result
+
+
+def video_watermark(video_path : str, watermark_path : str, output_path : str):
+    video = mp.VideoFileClip(video_path)
+
+    logo = (mp.ImageClip(watermark_path)
+            .set_duration(video.duration)
+            .resize(height=video.h//4) # if you need to resize...
+            .margin(right=8, bottom=8, opacity=0) # (optional) logo-border padding
+            .set_pos(("right","bottom")))
+
+    final = mp.CompositeVideoClip([video, logo])
+    final.write_videofile(output_path)
 
 
 def main():
@@ -38,6 +51,7 @@ def main():
     os.makedirs(output_path, exist_ok=True)
 
     image_extensions = [".png", ".tiff", ".jpg", ".jpeg"]
+    video_extensions = [".mp4"]
 
     files = os.listdir(image_folder)
     watermark_img = cv2.imread(watermark_path, cv2.IMREAD_UNCHANGED)
@@ -47,12 +61,18 @@ def main():
     for file in files:
         print(file)
         ext = os.path.splitext(file)[-1].lower()
-        if file == watermark_path or ext not in image_extensions:
+        print(ext)
+        if file == watermark_path:
             continue
-        source_img = cv2.imread(os.path.join(image_folder, file))
-        watermarked = apply_watermark(source_img, watermark_img)
-        print(os.path.join(output_folder, image_folder, file))
-        cv2.imwrite(os.path.join(output_folder, image_folder, file), watermarked)
+        if ext in image_extensions:
+            source_img = cv2.imread(os.path.join(image_folder, file))
+            watermarked = apply_watermark(source_img, watermark_img)
+            print(os.path.join(output_folder, image_folder, file))
+            cv2.imwrite(os.path.join(output_folder, image_folder, file), watermarked)
+        elif ext in video_extensions:
+            video_watermark(os.path.join(image_folder, file), watermark_path, os.path.join(output_folder, image_folder, file))
+        else:
+            print("no matching extension")
 
 
 if __name__ == "__main__":
