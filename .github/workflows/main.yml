@@ -1,0 +1,43 @@
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: 'windows-latest'
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.10
+
+      - run: pip install -r requirements.txt pyinstaller
+      - run: pyinstaller --onefile watermarker.py
+      - run: cp input dist/input
+      - run: mkdir dist/output
+      - uses: vimtor/action-zip@v1
+        with:
+          files: ./dist/watermarker.exe ./dist/input
+          dest: ./dist/watermarker${{github.ref_name}}.zip
+
+      - name: release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          release_name: "Watermarker ${{github.ref_name}}"
+          tag_name: ${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload windows artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/mod_updater_${{github.ref_name}}.zip
+          asset_name: watermarker${{github.ref_name}}.zip
+          asset_content_type: application/zip
