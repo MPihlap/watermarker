@@ -1,0 +1,1 @@
+# Put files to be watermarked in this folder.
