@@ -1,8 +1,14 @@
+import imp
 import os
 import cv2
 import numpy as np
 import argparse
-import moviepy.editor as mp
+#import moviepy.editor as mp
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.video.VideoClip import ImageClip
+from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+from moviepy.video.fx.resize import resize
+ImageClip.resize = resize
 import logging
 import sys
 
@@ -24,16 +30,16 @@ def apply_watermark(source_img : np.ndarray, watermark_img : np.ndarray):
 
 
 def video_watermark(video_path : str, watermark_path : str, output_path : str):
-    video = mp.VideoFileClip(video_path)
+    video = VideoFileClip(video_path)
 
-    logo = (mp.ImageClip(watermark_path)
+    logo = (ImageClip(watermark_path)
             .set_duration(video.duration)
             #.resize(height=video.h//4) # if you need to resize...
             .resize(height=video.h//4) # if you need to resize...
             #.margin(right=8, bottom=8, opacity=0) # (optional) logo-border padding
             .set_pos(("left","top")))
 
-    final = mp.CompositeVideoClip([video, logo])
+    final = CompositeVideoClip([video, logo])
     final.write_videofile(output_path)
 
 def main():
