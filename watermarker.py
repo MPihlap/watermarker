@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import argparse
 import moviepy.editor as mp
+import logging
+import sys
 
 def apply_watermark(source_img : np.ndarray, watermark_img : np.ndarray):
     # Calculate aspect ratio of watermark
@@ -26,53 +28,62 @@ def video_watermark(video_path : str, watermark_path : str, output_path : str):
 
     logo = (mp.ImageClip(watermark_path)
             .set_duration(video.duration)
+            #.resize(height=video.h//4) # if you need to resize...
             .resize(height=video.h//4) # if you need to resize...
-            .margin(right=8, bottom=8, opacity=0) # (optional) logo-border padding
-            .set_pos(("right","bottom")))
+            #.margin(right=8, bottom=8, opacity=0) # (optional) logo-border padding
+            .set_pos(("left","top")))
 
     final = mp.CompositeVideoClip([video, logo])
     final.write_videofile(output_path)
 
-
 def main():
+
+    if getattr(sys, 'frozen', False):
+        start_dir = os.path.dirname(sys.executable)
+    else:
+        start_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(start_dir) # Move to script folder
+
     parser = argparse.ArgumentParser(description="Add a watermark to all images in a folder.")
     parser.add_argument('--watermark', metavar="watermark", type=str, help="Path to the watermark image", default="watermark.png")
-    parser.add_argument('--imagefolder', metavar="img_folder", type=str, help="Path to the folder containing the images", default=".")
+    parser.add_argument('--inputfolder', metavar="inputfolder", type=str, help="Path to the folder containing the images", default="input")
     parser.add_argument('--outputfolder', metavar="out_folder", type=str, help="Path to output folder", default="output")
     args = parser.parse_args()
 
     print(args)
 
     watermark_path = args.watermark
-    image_folder = args.imagefolder
+    input_folder = args.inputfolder
     output_folder = args.outputfolder
-
-    output_path = os.path.join(output_folder, image_folder)
-    os.makedirs(output_path, exist_ok=True)
 
     image_extensions = [".png", ".tiff", ".jpg", ".jpeg"]
     video_extensions = [".mp4"]
 
-    files = os.listdir(image_folder)
+    files = os.listdir(input_folder)
     watermark_img = cv2.imread(watermark_path, cv2.IMREAD_UNCHANGED)
 
-    print(files)
+    logging.debug(files)
 
-    for file in files:
-        print(file)
-        ext = os.path.splitext(file)[-1].lower()
-        print(ext)
-        if file == watermark_path:
-            continue
-        if ext in image_extensions:
-            source_img = cv2.imread(os.path.join(image_folder, file))
-            watermarked = apply_watermark(source_img, watermark_img)
-            print(os.path.join(output_folder, image_folder, file))
-            cv2.imwrite(os.path.join(output_folder, image_folder, file), watermarked)
-        elif ext in video_extensions:
-            video_watermark(os.path.join(image_folder, file), watermark_path, os.path.join(output_folder, image_folder, file))
-        else:
-            print("no matching extension")
+    for folder, subs, files in os.walk(input_folder):
+        for file in files:
+            if file == watermark_path:
+                continue
+            local_folder = os.sep.join(os.path.normpath(folder).split(os.sep)[1:])
+            output_file_path = os.path.join(output_folder, local_folder, file)
+            logging.debug(local_folder, file, output_file_path)
+            if os.path.exists(output_file_path):
+                continue
+            os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+            ext = os.path.splitext(file)[-1].lower()
+            logging.debug(ext)
+            if ext in image_extensions:
+                source_img = cv2.imread(os.path.join(folder, file))
+                watermarked = apply_watermark(source_img, watermark_img)
+                cv2.imwrite(output_file_path, watermarked)
+            elif ext in video_extensions:
+                video_watermark(os.path.join(folder, file), watermark_path, output_file_path)
+            else:
+                print("no matching extension")
 
 
 if __name__ == "__main__":
